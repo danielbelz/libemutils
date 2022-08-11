@@ -9,12 +9,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 #include <execinfo.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
+
+#include "libemutils.h"
 
 #define RESPAWN_WAIT 5
 
@@ -59,8 +62,76 @@ void processMonitor(int respawn_wait_seconds, char *respawn_process)
     }
 }
 
+#define BUF_SIZE 1024
+pid_t findProcessPid(char* task_name)
+{
+    pid_t pid = 0;
+	DIR* dir;
+	struct dirent* ptr;
+	dir = opendir("/proc"); // Open the path to the
+
+	if (NULL != dir) {
+		while ((ptr = readdir(dir)) != NULL) // Loop reads each file/folder in the path
+		{
+            char filepath[50];      // The size is arbitrary, can hold the path of cmdline file
+            char cur_task_name[50]; // The size is arbitrary, can hold to recognize the command line text
+        	FILE* fp;
+
+			// If it reads "." or ".." Skip, and skip the folder name if it is not read
+			if ((strcmp(ptr->d_name, ".") == 0) || (strcmp(ptr->d_name, "..") == 0))
+			    continue;
+
+			if (DT_DIR != ptr->d_type)
+				continue;
+
+			sprintf(filepath, "/proc/%s/status", ptr->d_name); // Generates the path to the file to be read
+
+			fp = fopen(filepath, "r");                         // Open the file
+			if (NULL != fp) {
+            	char buf[BUF_SIZE];
+				if (fgets(buf, BUF_SIZE - 1, fp) == NULL) {
+					fclose(fp);
+					continue;
+				}
+				sscanf(buf, "%*s %s", cur_task_name);
+
+				// Print the name of the path (that is, the PID of the process) if the file content meets the requirement
+				if (!strcmp(task_name, cur_task_name)) {
+                    pid = atoi(ptr->d_name);
+                }
+				fclose(fp);
+			} else {
+                fprintf(stderr, "%s: %s\n", __FUNCTION__, strerror(errno));
+            }
+
+            if (pid) {
+                printf("%s pid %d\n", task_name, pid);
+                // First PID entry found, return it
+		        closedir(dir); // Shut down the path
+                return pid;
+            }
+
+		}
+		closedir(dir); // Shut down the path
+	} else {
+        fprintf(stderr, "%s: %s\n", __FUNCTION__, strerror(errno));
+    }
+
+    fprintf(stderr, "%s: %s not found\n", __FUNCTION__, task_name);
+    return pid;
+}
+
+bool isPidUp(pid_t pid)
+{
+    bool ret = false;
+
+    if (pid > 0 && kill(pid, 0) == 0) {
+        ret = true;
+    }
+
+    return ret;
+}
+
 //TODO:
-// findPidFromName(char *process_name)
-// isPidUp(pid_t pid)
 // isProcessUp(char *process_name)
 // killAllProcess(char *process_name)
