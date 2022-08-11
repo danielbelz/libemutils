@@ -132,6 +132,13 @@ bool isPidUp(pid_t pid)
     return ret;
 }
 
-//TODO:
-// isProcessUp(char *process_name)
-// killAllProcess(char *process_name)
+void killAllProcess(char *process_name)
+{
+    pid_t pid = 0;
+    do {
+        pid = findProcessPid(process_name);
+        if (pid > 0) {
+            kill(pid, SIGKILL);
+        }
+    } while (pid > 0);
+}

@@ -100,4 +100,18 @@ pid_t findProcessPid(char* task_name);
 */
 bool isPidUp(pid_t pid);
 
+/**
+    @brief Kills all instances of the given process name
+
+    @code
+
+        const char* process = "top";
+        killAllProcess(process);
+
+    @endcode
+
+    @param process_name Name of the process to be killed
+*/
+void killAllProcess(char *process_name);
+
 #endif //LIB_EMUTILS_H
